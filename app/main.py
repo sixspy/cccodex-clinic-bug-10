@@ -17,7 +17,6 @@ from app.services import reconcile as reconcile_svc
 from app.services import settings as settings_svc
 from app.services import code_clean as code_clean_svc
 from app.services import code_clean_cutover as code_clean_cutover_svc
-from app.services import code_clean_dualwrite as code_clean_dual_svc
 from app.services import sites as sites_svc
 from app.services import visits as visits_svc
 from app.services.errors import ServiceError
@@ -458,12 +457,6 @@ class Api:
 
     @cherrypy.expose
     @_wrap
-    def code_clean_half(self):
-        _require()
-        return _json(code_clean_svc.reconcile_display())
-
-    @cherrypy.expose
-    @_wrap
     def code_clean_snap(self):
         _require()
         return _json(code_clean_svc.snapshot())
@@ -479,13 +472,6 @@ class Api:
                 str(body.get("note") or "清洗钉定"),
             )
         )
-
-    @cherrypy.expose
-    @_wrap
-    def code_clean_dual(self):
-        _require()
-        body = _read_json()
-        return _json(code_clean_dual_svc.apply_dualwrite(str(body.get("note") or "清洗钉定")))
 
     @cherrypy.expose
     @_wrap
@@ -577,14 +563,10 @@ class ApiMount:
                 return api.code_clean_dash()
             if action == "commit":
                 return api.code_clean_commit()
-            if action == "half":
-                return api.code_clean_half()
             if action == "snap":
                 return api.code_clean_snap()
             if action == "cutover":
                 return api.code_clean_cutover()
-            if action == "dual":
-                return api.code_clean_dual()
             return _json({"error": "未知清洗钉定路由"}, 404)
 
         return _json({"error": f"未知接口 {path}"}, 404)

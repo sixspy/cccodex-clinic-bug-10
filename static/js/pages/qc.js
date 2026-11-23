@@ -1,17 +1,29 @@
-import { api, chip, escapeHtml } from '../api.js';
+import { api, chip, escapeHtml, fetchCodeClean, codeCleanChip } from '../api.js';
 
 export async function renderQc(el) {
-  const [findings, batches] = await Promise.all([
+  const [findings, batches, cc] = await Promise.all([
     api('/api/findings'),
     api('/api/batches'),
+    fetchCodeClean(),
   ]);
   const summary = findings.summary || {};
   const openBatches = (batches.items || []).filter((b) => b.status !== '已关闭');
+  const aligned = !!(cc && cc.aligned);
 
   el.innerHTML = `
     <div class="card">
-      <h2><span class="chip" data-thick="code_clean">清洗已亮</span> 字段质控发现</h2>
+      <h2>${codeCleanChip(cc)} 字段质控发现</h2>
       <p class="muted">对缺口质量行扫描生成发现；缺字段/编码空/重复键会带严重度。关闭发现不自动改质量，补采成功后会联动关闭。</p>
+      <div class="row" style="align-items:center">
+        <span class="muted">编码清洗读轨 <strong>${escapeHtml((cc && cc.active_read) || '-')}</strong>
+          · 切流指纹 ${escapeHtml((cc && cc.cutover_fp) || '空')}
+          · 拒回刷 ${cc && cc.reject_refresh ? '是' : '否'}
+          · 空码条数 ${cc ? cc.empty_code_count : '-'}</span>
+        ${aligned
+          ? '<span class="chip ok">清洗已亮 · 已对齐</span>'
+          : '<button id="ccLand" type="button">落台编码清洗</button>'}
+      </div>
+      ${aligned ? '' : '<p class="err">清洗徽标与空码条数对不上：空码入库已拦住，质控口径以落台后为准。</p>'}
       <div class="grid">
         <div class="stat"><div class="n">${summary.open || 0}</div><div class="l">开放发现</div></div>
         <div class="stat"><div class="n">${summary.closed || 0}</div><div class="l">已关闭</div></div>
@@ -83,6 +95,18 @@ export async function renderQc(el) {
 
   const msg = el.querySelector('#msg');
   const body = el.querySelector('#body');
+
+  const ccLand = el.querySelector('#ccLand');
+  if (ccLand) {
+    ccLand.onclick = async () => {
+      try {
+        const r = await api('/api/code_clean/commit', { method: 'POST', body: JSON.stringify({ op: '落台' }) });
+        msg.className = 'muted';
+        msg.textContent = r.message || '编码清洗已落台';
+        await renderQc(el);
+      } catch (e) { msg.textContent = e.message; msg.className = 'err'; }
+    };
+  }
 
   async function reload() {
     const status = el.querySelector('#statusFilter').value;

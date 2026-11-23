@@ -129,8 +129,6 @@ def set_status(site_id: int, status: str, db_path: str | None = None) -> dict:
 
 
 def update_quota(site_id: int, quota: int, db_path: str | None = None) -> dict:
-    from app.services.code_clean import commit_action
-    commit_action({"site_id": site_id, "quota": quota}, db_path)
     quota = max(1, min(9999, int(quota or 1)))
     with get_db(db_path) as conn:
         row = conn.execute("SELECT id FROM trial_sites WHERE id=?", (site_id,)).fetchone()

@@ -6,6 +6,7 @@ from datetime import datetime
 
 from app.db import get_db
 from app.services import audit as audit_svc
+from app.services import code_clean as code_clean_svc
 from app.services import protocols as protocols_svc
 from app.services.errors import ServiceError
 
@@ -458,6 +459,8 @@ def set_row_status(row_id: int, status: str, db_path: str | None = None) -> dict
 
 
 def ingest_ok_rows(batch_id: int, db_path: str | None = None) -> dict:
+    # 清洗徽标与空码条数拧花时拦住空码入库（编码清洗闸门）
+    code_clean_svc.require_pack_or_raise("空码入库", db_path=db_path)
     with get_db(db_path) as conn:
         batch = conn.execute(
             "SELECT * FROM visit_batches WHERE id=?", (batch_id,)

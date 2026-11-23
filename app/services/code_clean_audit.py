@@ -1,9 +1,8 @@
-"""编码清洗读轨审计：汇总切流账册与双写两轨两侧引用。"""
+"""编码清洗读轨审计：只留甲路切流账册单侧引用。"""
 from __future__ import annotations
 
 from app.db import get_db
 from app.services.code_clean_cutover import board as cutover_board
-from app.services.code_clean_dualwrite import dual_board, half_dual
 
 
 def audit_list(db_path: str | None = None) -> list[dict]:
@@ -20,6 +19,4 @@ def audit_summary(db_path: str | None = None) -> dict:
         "title": "编码清洗审计",
         "events": audit_list(db_path),
         "cutover": cutover_board(db_path),
-        "dualwrite": dual_board(db_path),
-        "half": half_dual(db_path),
     }

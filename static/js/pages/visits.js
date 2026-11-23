@@ -1,11 +1,14 @@
-import { api, chip, escapeHtml } from '../api.js';
+import { api, chip, escapeHtml, fetchCodeClean, codeCleanChip } from '../api.js';
 
 export async function renderVisits(el) {
-  const [batches, sites, protocols] = await Promise.all([
+  const [batches, sites, protocols, cc] = await Promise.all([
     api('/api/batches'),
     api('/api/sites'),
     api('/api/protocols?status=' + encodeURIComponent('生效')),
+    fetchCodeClean(),
   ]);
+  const aligned = !!(cc && cc.aligned);
+  const emptyCount = cc ? cc.empty_code_count : '-';
   const siteOpts = (sites.items || [])
     .filter((s) => s.status !== '停用')
     .map((s) => `<option value="${s.id}">${escapeHtml(s.site_code + ' · ' + s.name)}</option>`)
@@ -16,8 +19,14 @@ export async function renderVisits(el) {
 
   el.innerHTML = `
     <div class="card">
-      <h2><span class="chip" data-thick="code_clean">清洗已亮</span> 访视清单抓取批次</h2>
+      <h2>${codeCleanChip(cc)} 访视清单抓取批次</h2>
       <p class="muted">按试验中心开批次，模拟抓取访视行，合格行可入库，缺口行进入质控与补采。</p>
+      <div class="row" style="align-items:center">
+        <span class="chip ${emptyCount > 0 ? 'bad' : 'ok'}">空码条数 ${emptyCount}</span>
+        ${aligned
+          ? '<span class="muted">编码清洗已落台，空码入库放行中</span>'
+          : '<span class="err">清洗徽标与空码条数对不上，空码入库已拦住；请先到字段质控或台参数落台编码清洗。</span>'}
+      </div>
       <div class="row">
         <select id="siteId">${siteOpts}</select>
         <select id="protocolId"><option value="">默认生效方案</option>${protoOpts}</select>
@@ -82,6 +91,8 @@ export async function renderVisits(el) {
       <div class="row">
         <strong>${escapeHtml(b.batch_code)}</strong>
         ${chip(b.status)}
+        ${codeCleanChip(cc)}
+        <span class="chip ${emptyCount > 0 ? 'bad' : 'ok'}">空码条数 ${emptyCount}</span>
         <span class="muted">${escapeHtml(b.site_name)} · 方案 ${escapeHtml(b.protocol_title || '-')}</span>
       </div>
       <div class="grid">

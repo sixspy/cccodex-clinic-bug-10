@@ -1,4 +1,4 @@
-import { api, escapeHtml } from '../api.js';
+import { api, escapeHtml, fetchCodeClean, codeCleanChip } from '../api.js';
 
 export async function renderSettings(el) {
   const data = await api('/api/settings');
@@ -64,38 +64,44 @@ export async function renderSettings(el) {
   });
 
   try {
-    const dash = await api('/api/code_clean/dash');
-    el.innerHTML += `<div class="card" style="margin-top:1rem">
-      <h3>清洗钉定</h3>
-      <span class="chip">${dash.chip}</span>
-      <p class="muted">读轨 ${dash.active_read} · 切流指纹 ${dash.cutover_fp || '空'} · 拒回刷 ${dash.reject_refresh} · 归档 ${dash.archive_count} · 新旗 ${dash.live_flag || '空'} · 对齐差 ${dash.panel_pack_mismatch}</p>
-      <div class="row">
-        <button id="go_code_clean" type="button">落台</button>
-        <button id="half_code_clean" type="button">半修对齐</button>
-        <button id="cut_code_clean" type="button">切流账册</button>
-        <button id="dual_code_clean" type="button">双写两轨</button>
-      </div>
-    </div>`;
-    const go = el.querySelector('#go_code_clean');
-    if (go) go.onclick = async () => {
-      await api('/api/code_clean/commit', { method:'POST', body: JSON.stringify({ref:1}) });
-      await renderSettings(el);
-    };
-    const half = el.querySelector('#half_code_clean');
-    if (half) half.onclick = async () => {
-      await api('/api/code_clean/half', { method:'POST', body:'{}' });
-      await renderSettings(el);
-    };
-    const cut = el.querySelector('#cut_code_clean');
-    if (cut) cut.onclick = async () => {
-      await api('/api/code_clean/cutover', { method:'POST', body: JSON.stringify({ref_id:1, note:'编码清洗'}) });
-      await renderSettings(el);
-    };
-    const dual = el.querySelector('#dual_code_clean');
-    if (dual) dual.onclick = async () => {
-      await api('/api/code_clean/dual', { method:'POST', body: JSON.stringify({note:'编码清洗'}) });
-      await renderSettings(el);
-    };
+    const dash = await fetchCodeClean();
+    if (dash) {
+      el.innerHTML += `<div class="card" style="margin-top:1rem">
+        <h3>清洗钉定（甲路 · 切流账册）</h3>
+        ${codeCleanChip(dash)}
+        <p class="muted">读轨 ${escapeHtml(dash.active_read || '-')} · 切流指纹 ${escapeHtml(dash.cutover_fp || '空')} · 拒回刷 ${dash.reject_refresh ? '是' : '否'} · 空码条数 ${dash.empty_code_count} · 账册行 ${dash.durable_count} · ${dash.aligned ? '已对齐' : '未对齐'}</p>
+        <div class="row">
+          <button id="go_code_clean" type="button">落台</button>
+          <button id="cut_code_clean" type="button">切流账册</button>
+        </div>
+        <div id="cc_msg" class="muted" style="margin-top:8px"></div>
+      </div>`;
+      const ccMsg = el.querySelector('#cc_msg');
+      const go = el.querySelector('#go_code_clean');
+      if (go) go.onclick = async () => {
+        try {
+          const r = await api('/api/code_clean/commit', { method: 'POST', body: JSON.stringify({ ref: 1, note: '落台' }) });
+          ccMsg.className = 'muted';
+          ccMsg.textContent = r.message || '已落台';
+        } catch (e) {
+          ccMsg.className = 'err';
+          ccMsg.textContent = e.message;
+        }
+        await renderSettings(el);
+      };
+      const cut = el.querySelector('#cut_code_clean');
+      if (cut) cut.onclick = async () => {
+        try {
+          const r = await api('/api/code_clean/cutover', { method: 'POST', body: JSON.stringify({ ref_id: 1, note: '编码清洗' }) });
+          ccMsg.className = 'muted';
+          ccMsg.textContent = r.message || '账册凭证已钉定';
+        } catch (e) {
+          ccMsg.className = 'err';
+          ccMsg.textContent = e.message;
+        }
+        await renderSettings(el);
+      };
+    }
   } catch (e) { /* optional surface */ }
 
 }

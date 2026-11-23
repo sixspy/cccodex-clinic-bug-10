@@ -26,6 +26,16 @@ export function chip(status) {
   return `<span class="chip ${chipClass(status)}">${status || '-'}</span>`;
 }
 
+export async function fetchCodeClean() {
+  try { return await api('/api/code_clean/dash'); } catch (e) { return null; }
+}
+
+export function codeCleanChip(dash) {
+  const ok = !!(dash && dash.aligned);
+  const label = ok ? (dash.ok_chip || '清洗已亮') : ((dash && dash.bad_chip) || '空码仍入');
+  return `<span class="chip ${ok ? 'ok' : 'bad'}" data-thick="code_clean">${label}</span>`;
+}
+
 export function escapeHtml(s) {
   return String(s ?? '')
     .replaceAll('&', '&amp;')

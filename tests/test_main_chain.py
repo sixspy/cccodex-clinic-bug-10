@@ -1,4 +1,4 @@
-from app.services import backfill, qc, reconcile, visits
+from app.services import backfill, code_clean, qc, reconcile, visits
 
 
 def test_qc_backfill_reconcile_chain(db_path):
@@ -30,6 +30,8 @@ def test_qc_backfill_reconcile_chain(db_path):
 
 
 def test_mock_crawl_and_ingest(db_path):
+    # 空码入库被编码清洗闸门把守：先落台钉定切流账册，再走抓取入库主链
+    code_clean.commit_action({"op": "落台"}, db_path=db_path)
     batches = visits.list_batches(db_path)
     batch = next(b for b in batches if b["status"] == "采集中")
     before = visits.get_batch(batch["id"], db_path)["item_count"]

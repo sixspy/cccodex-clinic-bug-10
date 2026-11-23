@@ -1,4 +1,4 @@
-"""编码清洗切流账册：应锁当刻指纹并拒回刷；当前只记软笔记。"""
+"""编码清洗切流账册：落点即钉旁路账册凭证，锁当刻指纹并拒回刷。"""
 from __future__ import annotations
 
 from app.db import get_db
@@ -6,30 +6,19 @@ from app.services.code_clean import (
     active_read_ref,
     cutover_fp,
     dashboard,
+    land_cutover,
     panel_chip,
-    record_event,
     reject_refresh,
     truth_flag,
 )
 
 _SLUG = "code_clean"
 _TITLE = "编码清洗"
-_OK = "清洗已亮"
-_BAD = "空码仍入"
 
 
 def append_cutover(ref_id: int, note: str, db_path: str | None = None) -> dict:
-    with get_db(db_path) as conn:
-        conn.execute(
-            "INSERT OR REPLACE INTO meta(key, value) VALUES (?, ?)",
-            (f"{_SLUG}_cutover_note_{ref_id}", note or _TITLE),
-        )
-        # missing: durable fp lock + reject_refresh=1 + active_read=cutover_book
-        conn.execute(
-            "INSERT OR REPLACE INTO meta(key, value) VALUES (?, ?)",
-            (f"{_SLUG}_panel_chip", _OK),
-        )
-    record_event(f"cutover-note ref={ref_id} {note}", db_path)
+    """账册凭证落点：与落台同一把锁，落定后重复写直接 409。"""
+    res = land_cutover(note=f"账册凭证 ref={ref_id} {note}", payload={"ref_id": ref_id}, db_path=db_path)
     return {
         "ref_id": ref_id,
         "note": note,
@@ -38,6 +27,7 @@ def append_cutover(ref_id: int, note: str, db_path: str | None = None) -> dict:
         "active_read": active_read_ref(db_path),
         "cutover_fp": cutover_fp(db_path),
         "reject_refresh": reject_refresh(db_path),
+        "message": res["message"],
     }
 
 
@@ -62,5 +52,4 @@ def board(db_path: str | None = None) -> dict:
     dash = dashboard(db_path)
     dash["cutover"] = cutover_rows(db_path)
     dash["fate"] = "cutover_book"
-    dash["panel_pack_mismatch"] = dash.get("panel_pack_mismatch", True)
     return dash

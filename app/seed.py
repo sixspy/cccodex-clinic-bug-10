@@ -220,10 +220,10 @@ def seed_if_needed(db_path: str | None = None) -> None:
             VALUES ('system', '种子初始化', 'lab', 0, '首次启动写入临床试验访视样例')
             """
         )
-        try:
-            from app.services.code_clean import seed_skew
-            seed_skew(db_path)
-        except Exception:
-            pass
         _meta_set(conn, "seeded", "1")
         _meta_set(conn, "seed_version", "clinic-1")
+
+    # 编码清洗假绿钉点：须在种子事务提交后另起连接写入，
+    # 否则与未提交的种子写入争锁被静默吞掉，skew 永远落不了库。
+    from app.services.code_clean import seed_skew
+    seed_skew(db_path)
